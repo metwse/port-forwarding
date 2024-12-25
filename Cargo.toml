@@ -1,0 +1,23 @@
+[workspace]
+members = [
+    "client",
+    "proxy",
+    "util",
+]
+resolver = "2"
+
+
+[workspace.dependencies]
+tokio = "1"
+tracing = "0.1"
+serde = "1"
+
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = "warn"
+style = "warn"
+unused_self = "warn"
+if_let_mutex = "warn"

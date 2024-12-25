@@ -1,0 +1,22 @@
+[package]
+name = "proxy"
+version = "0.0.0"
+edition = "2021"
+license = "MIT"
+description = "Proxy for TCP port forwarding"
+readme = "README.md"
+
+[dependencies]
+tokio = { workspace = true, features = ["net", "test-util", "io-util", "macros"] }
+tracing = { workspace = true }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rsa = "0.9"
+rand = "0.8"
+util = { path = "../util/" }
+
+[dev-dependencies]
+tracing-subscriber = "0.3"
+
+[lints]
+workspace = true
