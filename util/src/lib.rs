@@ -1,3 +1,6 @@
+#[macro_use]
+mod macros;
+
 /// Light-weight micro TLS layer.
 pub mod mtls;
 

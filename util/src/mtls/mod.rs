@@ -1,14 +1,16 @@
 mod error;
 
-use rand::thread_rng;
+#[cfg(test)]
+mod tests;
+
+mod payload;
+
 use rsa::{
     pkcs1::{DecodeRsaPublicKey, EncodeRsaPublicKey},
-    traits::PublicKeyParts,
-    Pkcs1v15Encrypt, RsaPrivateKey, RsaPublicKey,
+    RsaPrivateKey, RsaPublicKey,
 };
 use std::{sync::Mutex as StdMutex, time::Duration};
 use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt, BufWriter},
     net::{
         tcp::{OwnedReadHalf, OwnedWriteHalf},
         TcpStream,
@@ -17,6 +19,7 @@ use tokio::{
 };
 
 pub use error::Error;
+pub use payload::{max_payload_size, MtlsPayload};
 
 /// Micro TLS Tunnel is a cryptographic protocol that ensures secure
 /// communication over the Internet.
@@ -134,7 +137,15 @@ impl Mtls {
     pub async fn send(&self, data: &[u8]) -> Result<(), Error> {
         match self.get_state() {
             MtlsState::Authenticated => {
-                match send(&self.write, self.public_key.as_ref().unwrap(), data).await {
+                let sent: Result<(), Error> = async {
+                    let stream = &mut *(self.write.lock().await);
+                    MtlsPayload::new(data.to_owned())
+                        .write(stream, self.public_key.as_ref().unwrap())
+                        .await?;
+                    Ok(())
+                }.await;
+
+                match sent {
                     Err(e) => {
                         self.set_state(MtlsState::TransmitError);
                         Err(e)
@@ -151,106 +162,21 @@ impl Mtls {
     pub async fn receive(&self) -> Result<Vec<u8>, Error> {
         match self.get_state() {
             MtlsState::TransmitError => Err(Error::SocketDied),
-            _ => match receive(&self.read, &self.private_key).await {
-                Err(e) => {
-                    self.set_state(MtlsState::TransmitError);
-                    Err(e)
+            _ => {
+                let received = async {
+                    let stream = &mut *(self.read.lock().await);
+                    let payload = MtlsPayload::collect_once(stream, &self.private_key).await?;
+                    Ok(payload.payload)
+                }.await;
+
+                match received {
+                    Err(e) => {
+                        self.set_state(MtlsState::TransmitError);
+                        Err(e)
+                    }
+                    Ok(ok) => Ok(ok),
                 }
-                Ok(ok) => Ok(ok),
             },
         }
     }
-}
-
-async fn send(
-    stream: &Mutex<OwnedWriteHalf>,
-    public_key: &RsaPublicKey,
-    data: &[u8],
-) -> Result<(), Error> {
-    let stream = &mut *(stream.lock().await);
-
-    // PKCS1 v1.5 encryption padding is at most 11 bytes.
-    let block_size = public_key.size() - 11;
-    let block_count = data.len().div_ceil(block_size);
-
-    let mut encrypted_buffer = Vec::with_capacity(block_count * block_size);
-    let mut bw = BufWriter::new(&mut encrypted_buffer);
-
-    for i in 0..block_count {
-        let encrypted = public_key.encrypt(
-            &mut thread_rng(),
-            Pkcs1v15Encrypt,
-            &data[(i * block_size)..(((i + 1) * block_size).min(data.len()))],
-        )?;
-        bw.write_all(&encrypted).await?;
-    }
-
-    stream.write_u64(block_count as u64).await?;
-    bw.flush().await?;
-    stream.write_all(&encrypted_buffer).await?;
-
-    Ok(())
-}
-
-async fn receive(
-    stream: &Mutex<OwnedReadHalf>,
-    private_key: &RsaPrivateKey,
-) -> Result<Vec<u8>, Error> {
-    let stream = &mut *(stream.lock().await);
-
-    let block_count = stream.read_u64().await?;
-    let block_size = private_key.size();
-    let mut decrypted = Vec::with_capacity(block_size * block_count as usize);
-
-    for _ in 0..block_count {
-        let mut handle = stream.take(block_size as u64);
-        let mut encrypted = Vec::with_capacity(block_size);
-        handle.read_to_end(&mut encrypted).await?;
-
-        decrypted.append(&mut private_key.decrypt(Pkcs1v15Encrypt, &encrypted).unwrap());
-    }
-
-    decrypted.shrink_to_fit();
-
-    Ok(decrypted)
-}
-
-#[tokio::test]
-async fn mtls() {
-    let mut rng = thread_rng();
-
-    let server_private = RsaPrivateKey::new(&mut rng, 512).unwrap();
-    let server_public = RsaPublicKey::from(&server_private);
-
-    let client_private = RsaPrivateKey::new(&mut rng, 512).unwrap();
-
-    let server = tokio::net::TcpListener::bind("localhost:7811")
-        .await
-        .unwrap();
-
-    let (tcp_stream, accept) = tokio::join!(TcpStream::connect("localhost:7811"), server.accept());
-    let client = tcp_stream.unwrap();
-    let (peer, _) = accept.unwrap();
-
-    let mut client_mtls = Mtls::new(client, client_private);
-    client_mtls.set_public_key(server_public);
-
-    let mut server_handler_mtls = Mtls::new(peer, server_private);
-    let (server_handshake_result, client_send_result) = tokio::join!(
-        server_handler_mtls.handshake(),
-        client_mtls.send_public_key()
-    );
-    server_handshake_result.expect("Server could not retrieve certificate");
-    client_send_result.expect("Client could not send certificate");
-
-    let msg = b"a repetitive message".repeat(64);
-
-    client_mtls.send(&msg).await.unwrap();
-    server_handler_mtls.send(&msg).await.unwrap();
-
-    let server_received = server_handler_mtls.receive().await.unwrap();
-    let client_received = client_mtls.receive().await.unwrap();
-
-    assert_eq!(msg, server_received);
-    assert_eq!(msg, client_received);
 }
