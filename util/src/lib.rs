@@ -1,3 +1,6 @@
+/// Light-weight micro TLS layer.
+pub mod mtls;
+
 use serde::{Deserialize, Serialize};
 
 /// Command interface for clients/servers
@@ -72,5 +75,3 @@ impl PermissionLevel {
         }
     }
 }
-
-pub mod mtls;

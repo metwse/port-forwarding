@@ -4,10 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-tokio = { workspace = true, features = ["io-util", "net", "macros", "rt"] }
+tokio = { workspace = true, features = ["io-util", "net", "macros", "rt", "sync"] }
 serde = { workspace = true, features = ["derive"] }
 rsa = { workspace = true }
 rand = { workspace = true }
+paste = "1"
 
 [lints]
 workspace = true
