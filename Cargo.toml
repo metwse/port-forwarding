@@ -11,7 +11,9 @@ resolver = "2"
 tokio = "1"
 tracing = "0.1"
 serde = "1"
-
+bincode = "1.3"
+rsa = "0.9"
+rand = "0.8"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

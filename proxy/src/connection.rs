@@ -1,17 +1,26 @@
+use serde::{Serialize, Deserialize};
+
+/// State of the connection.
+pub enum ConnecitonState {
+    /// A conneciton that has not yet been handled.
+    Socket,
+    /// An authorized connection that waiting for being converted to cmd or forward socket.
+    Authorized { token: Token },
+    /// A connection, shares/receives ports or sends commands.
+    Handled { connection_type: ConnectionType },
+}
+
 /// Connection that awaiting or sending commands or forwarding ports.
-pub enum Connection {
+pub enum ConnectionType {
     /// Encrypted management connection.
-    Cmd {
-        /// The scope that the connection is authorized to do.
-        token: CmdToken,
-    },
+    Cmd { token: Token },
     /// A TCP connection that forwards port.
     TcpFwd {
         /// Indicates that the connection shares a port or receives one.
         kind: FwdKind,
         /// forwarded port
         port: u32,
-        /// unique id of the TCP connection
+        /// unique id of the routing request
         id: u64,
     },
 }
@@ -24,21 +33,9 @@ pub enum FwdKind {
     Receive,
 }
 
-/// Permissions of the TCP connection.
-pub enum CmdToken {
-    /// Node connection that serves port.
-    Node {
-        /// hostname of the node
-        hostname: String,
-    },
-    /// A conneciton can receive ports.
-    StandardClient {
-        /// hostname of the client
-        username: String,
-    },
-    /// A conneciton can manage nodes and receive ports.
-    AdminClient {
-        /// username of the client
-        username: String,
-    },
+/// Connection authentication token
+#[derive(Serialize, Deserialize)]
+pub struct Token {
+    pub hostname: String,
+    pub permission_level: util::PermissionLevel,
 }
