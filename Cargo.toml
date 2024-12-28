@@ -14,6 +14,7 @@ serde = "1"
 bincode = "1.3"
 rsa = "0.9"
 rand = "0.8"
+ptls = { git = "https://github.com/metwse/ptls.git" }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

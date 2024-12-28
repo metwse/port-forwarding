@@ -7,7 +7,7 @@ description = "Proxy for TCP port forwarding"
 readme = "README.md"
 
 [dependencies]
-tokio = { workspace = true, features = ["net", "test-util", "io-util", "macros"] }
+tokio = { workspace = true, features = ["net", "test-util", "io-util", "macros", "rt-multi-thread", "sync"] }
 tracing = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 bincode = { workspace = true }
@@ -15,6 +15,7 @@ rsa = { workspace = true }
 rand = { workspace = true }
 util = { path = "../util/" }
 sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio"] }
+ptls = { workspace = true }
 
 [dev-dependencies]
 tracing-subscriber = "0.3"

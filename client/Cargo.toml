@@ -7,12 +7,14 @@ description = "Client for TCP port forwarding"
 readme = "README.md"
 
 [dependencies]
-tokio = { workspace = true, features = ["net", "test-util", "io-util", "macros"] }
+tokio = { workspace = true, features = ["net", "rt-multi-thread", "macros"] }
 tracing = { workspace = true }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+serde = { workspace = true }
+bincode = { workspace = true }
 rsa = "0.9"
 rand = "0.8"
+ptls = { workspace = true }
+util = { path = "../util/" }
 
 [dev-dependencies]
 tracing-subscriber = "0.3"

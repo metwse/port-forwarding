@@ -1,23 +1,17 @@
-use serde::{Deserialize, Serialize};
-
 /// State of the connection.
-pub enum ConnecitonState {
-    /// A conneciton that has not yet been handled.
+pub enum ConnectionState {
+    /// A conneciton that has not yet been authorized.
     Socket,
     /// An authorized connection that waiting for being converted to cmd or forward socket.
-    Authorized { token: Token },
+    Authorized {
+        hostname: String,
+        permission_level: util::PermissionLevel,
+    },
     /// A connection, shares/receives ports or sends commands.
-    Handled { connection_type: ConnectionType },
-}
-
-/// Connection that awaiting or sending commands or forwarding ports.
-pub enum ConnectionType {
-    /// Encrypted management connection.
-    Cmd { token: Token },
-    /// A TCP connection that forwards port.
-    TcpFwd {
+    PortForward {
+        hostname: String,
         /// Indicates that the connection shares a port or receives one.
-        kind: FwdKind,
+        kind: ForwardKind,
         /// forwarded port
         port: u32,
         /// unique id of the routing request
@@ -26,16 +20,9 @@ pub enum ConnectionType {
 }
 
 /// Type of the port forwarding connection.
-pub enum FwdKind {
+pub enum ForwardKind {
     /// The connection shares its port.
     Share,
     /// The connection receives a port.
     Receive,
-}
-
-/// Connection authentication token
-#[derive(Serialize, Deserialize)]
-pub struct Token {
-    pub hostname: String,
-    pub permission_level: util::PermissionLevel,
 }
