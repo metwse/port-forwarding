@@ -1,12 +1,16 @@
+use dotenv::dotenv;
 use proxy::ServerBuilder;
 
 #[tokio::main]
 async fn main() {
+    dotenv().ok();
+    util::env![CERT, DATABASE_URL, HOST];
+
     ServerBuilder::new()
-        .private_key_file("../env/private.pem")
-        .sqlite_database("sqlite://server.db")
+        .private_key_file(*CERT)
+        .sqlite_database(*DATABASE_URL)
         .await
         .build()
-        .serve("0.0.0.0:4040")
+        .serve(*HOST)
         .await;
 }

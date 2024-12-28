@@ -1,4 +1,5 @@
 /// State of the connection.
+#[derive(Debug)]
 pub enum ConnectionState {
     /// A conneciton that has not yet been authorized.
     Socket,
@@ -20,6 +21,7 @@ pub enum ConnectionState {
 }
 
 /// Type of the port forwarding connection.
+#[derive(Debug)]
 pub enum ForwardKind {
     /// The connection shares its port.
     Share,

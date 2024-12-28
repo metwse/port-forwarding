@@ -13,9 +13,11 @@ serde = { workspace = true, features = ["derive"] }
 bincode = { workspace = true }
 rsa = { workspace = true }
 rand = { workspace = true }
+dotenv = { workspace = true }
 util = { path = "../util/" }
 sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio"] }
 ptls = { workspace = true }
+lazy_static = "1.5"
 
 [dev-dependencies]
 tracing-subscriber = "0.3"

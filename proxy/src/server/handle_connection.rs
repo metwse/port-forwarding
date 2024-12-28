@@ -75,26 +75,30 @@ impl super::Server {
         connection_state: &mut ConnectionState,
         server_ptls: &Arc<Ptls<OwnedReadHalf, OwnedWriteHalf>>,
     ) -> Option<Cmd> {
+        println!("handled: {cmd:?} {connection_state:?}");
         match &connection_state {
             ConnectionState::Socket => {
                 if let Cmd::Authenticate { token } = cmd {
+                    let token = String::from_utf8(token).ok()?;
                     let client = sqlx::query!(
                         "SELECT hostname, permission_level FROM clients WHERE key = ?",
                         token
                     )
                     .fetch_optional(&self.sqlite)
                     .await;
+
                     if let Ok(Some(client)) = client {
                         let mut connections = self.connections.lock().await;
-                        if connections.get(&client.hostname).is_some() {
-                            return None;
-                        }
 
                         *connection_state = ConnectionState::Authorized {
                             hostname: client.hostname.clone(),
                             permission_level: bincode::deserialize(&client.permission_level)
                                 .ok()?,
                         };
+
+                        if connections.get(&client.hostname).is_some() {
+                            return None;
+                        }
                         connections.insert(client.hostname, Arc::clone(server_ptls));
                     }
                 }
@@ -121,20 +125,49 @@ impl super::Server {
                         return None;
                     }
                     let id: u64 = rand::thread_rng().r#gen();
-                    if let Some(connection) = self.connections.lock().await.get(&requested_hostname)
-                    {
-                        connection
-                            .send(&bincode::serialize(&Cmd::SharePort { port, id }).unwrap())
-                            .await
-                            .ok();
+                    loop {
+                        if let Some(connection) =
+                            self.connections.lock().await.get(&requested_hostname)
+                        {
+                            connection
+                                .send(&bincode::serialize(&Cmd::SharePort { port, id }).unwrap())
+                                .await
+                                .ok();
 
-                        *connection_state = ConnectionState::PortForward {
-                            hostname: hostname.clone(),
-                            kind: ForwardKind::Receive,
-                            port,
-                            id,
-                        }
+                            *connection_state = ConnectionState::PortForward {
+                                hostname: hostname.clone(),
+                                kind: ForwardKind::Receive,
+                                port,
+                                id,
+                            };
+
+                            break;
+                        };
+
+                        tokio::time::sleep(Duration::from_secs(1)).await;
                     }
+                    None
+                }
+                Cmd::AddClient {
+                    username, token, ..
+                } => {
+                    if !permission_level.at_least(&PermissionLevel::Admin(0)) {
+                        return None;
+                    }
+
+                    let blob = bincode::serialize(&util::PermissionLevel::Standart).unwrap();
+                    if sqlx::query_scalar!(
+                        "INSERT INTO clients SELECT ?, ?, ?;",
+                        username,
+                        blob,
+                        token
+                    )
+                    .fetch_optional(&self.sqlite)
+                    .await
+                    .is_ok()
+                    {
+                        println!("user added: {}", username)
+                    };
                     None
                 }
                 _ => None,

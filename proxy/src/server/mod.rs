@@ -1,6 +1,3 @@
-/// Server database utils.
-pub mod database;
-
 pub mod handle_connection;
 
 use ptls::Ptls;
@@ -82,12 +79,6 @@ impl Server {
     /// Serves the proxy server.
     pub async fn serve<T: ToSocketAddrs>(self: Arc<Self>, addr: T) -> ! {
         let listener = TcpListener::bind(addr).await.unwrap();
-
-        //let blob = bincode::serialize(&util::PermissionLevel::Admin(u32::MAX)).unwrap();
-        //sqlx::query_scalar!("INSERT INTO clients SELECT 'su', ?, '1234';", blob)
-        //    .fetch_optional(&self.sqlite)
-        //    .await
-        //    .unwrap();
 
         loop {
             let socket = match listener.accept().await {

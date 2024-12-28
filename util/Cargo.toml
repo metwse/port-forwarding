@@ -9,6 +9,7 @@ serde = { workspace = true, features = ["derive"] }
 rsa = { workspace = true }
 rand = { workspace = true }
 paste = "1"
+lazy_static = "1.5"
 
 [lints]
 workspace = true

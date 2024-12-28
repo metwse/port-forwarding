@@ -1,6 +1,10 @@
 use client::Client;
+use dotenv::dotenv;
 
 #[tokio::main]
 async fn main() {
-    Client::connect("localhost:4040", "../env/public.pem", "1234").await;
+    dotenv().ok();
+    util::env![CERT, TOKEN, HOST];
+
+    Client::connect(*HOST, *CERT, *TOKEN).await;
 }

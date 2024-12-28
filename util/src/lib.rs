@@ -1,6 +1,22 @@
 use serde::{Deserialize, Serialize};
 use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 
+// loads environment variables to &'static str
+#[macro_export]
+macro_rules! env {
+    ($($name: ident),*) => {
+        lazy_static::lazy_static! {
+            $(
+                static ref $name: &'static str = Box::leak(
+                    std::env::var(stringify!($name))
+                        .expect(&format!("Cannot find environment variable {}", stringify!($name))[..])
+                        .into_boxed_str()
+                );
+            )*
+        }
+    };
+}
+
 /// Command interface for clients/servers
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Cmd {
@@ -16,22 +32,13 @@ pub enum Cmd {
         port: u32,
         id: u64,
     },
-    ListNodes {
-        after: String,
-        limit: u64,
-    },
-    AddNode {
-        hostname: String,
-    },
-    RemoveNode {
-        hostname: String,
-    },
     ListClients {
         after: String,
         limit: u64,
     },
     AddClient {
         username: String,
+        token: String,
         permission_level: PermissionLevel,
     },
     RemoveClient {
@@ -56,9 +63,6 @@ impl Cmd {
             Self::Authenticate { .. } => PermissionLevel::Any,
             Self::GetPort { .. } => PermissionLevel::Standart,
             Self::SharePort { .. } => PermissionLevel::Node,
-            Self::ListNodes { .. } => PermissionLevel::Standart,
-            Self::AddNode { .. } => PermissionLevel::Admin(0),
-            Self::RemoveNode { .. } => PermissionLevel::Admin(0),
             Self::ListClients { .. } => PermissionLevel::Admin(0),
             Self::AddClient {
                 permission_level, ..
@@ -74,14 +78,18 @@ impl Cmd {
 impl PermissionLevel {
     /// Checks whether `self` is at least `other`'s level.
     pub fn at_least(&self, other: &Self) -> bool {
-        if other == self {
-            return true
+        if let Self::Admin(_) = self {
+            if !matches!(other, Self::Admin(_)) {
+                return true
+            }
         }
 
         match (other, self) {
-            (Self::Admin(other_level), Self::Admin(level)) => *other_level >= *level,
+            (Self::Admin(other_level), Self::Admin(level)) => *other_level < *level,
             (Self::Any, _) => true,
-            _ => false,
+            _ => {
+                other == self
+            },
         }
     }
 }
